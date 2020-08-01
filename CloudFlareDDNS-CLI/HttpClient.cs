@@ -4,89 +4,81 @@ using System.IO;
 
 // Source : https://www.cnblogs.com/lastcode/p/4878436.html
 
-namespace CloudFlareDDNS_WPF
+namespace CloudFlareDDNS_CLI
 {
     class HttpClient
     {
-        public HttpClient()
-        {
-        }
-
-        #region DELETE方式
         public string Delete(string url, WebHeaderCollection headers, string data) => CommonHttpRequest(url, headers, data, "DELETE");
 
-        public string Delete(string url)
+        public string Delete(string url, WebHeaderCollection headers)
         {
-            //Web访问对象64
-            string serviceUrl = url;
-            HttpWebRequest myRequest = (HttpWebRequest)WebRequest.Create(serviceUrl);
-            myRequest.Method = "DELETE";
-            // 获得接口返回值68
-            HttpWebResponse myResponse = (HttpWebResponse)myRequest.GetResponse();
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+
+            request.Method = "DELETE";
+            request.Headers = headers;
+
+            HttpWebResponse myResponse = (HttpWebResponse)request.GetResponse();
             StreamReader reader = new StreamReader(myResponse.GetResponseStream(), Encoding.UTF8);
-            //string ReturnXml = HttpUtility.UrlDecode(reader.ReadToEnd());
-            string ReturnXml = reader.ReadToEnd();
+
+            string xml_return = reader.ReadToEnd();
+
             reader.Close();
             myResponse.Close();
-            return ReturnXml;
+
+            return xml_return;
         }
-        #endregion
 
-        #region PUT方式
         public string Put(string url, WebHeaderCollection headers, string data) => CommonHttpRequest(url, headers, data, "PUT");
-        #endregion
 
-        #region POST方式
         public string Post(string url, WebHeaderCollection headers, string data) => CommonHttpRequest(url, headers, data, "POST");
-        #endregion
 
-        #region GET方式
         public string Get(string url, WebHeaderCollection headers)
         {
-            HttpWebRequest myRequest = (HttpWebRequest)WebRequest.Create(url);
-            myRequest.Headers = headers;
-            HttpWebResponse myResponse = (HttpWebResponse)myRequest.GetResponse();
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
 
-            //通过响应流构造一个StreamReader
-            StreamReader reader = new StreamReader(myResponse.GetResponseStream(), Encoding.UTF8);
-            //string ReturnXml = HttpUtility.UrlDecode(reader.ReadToEnd());
-            string ReturnXml = reader.ReadToEnd();
+            request.Headers = headers;
+
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
+
+            string xml_return = reader.ReadToEnd();
+
             reader.Close();
-            myResponse.Close();
-            return ReturnXml;
-        }
-        #endregion
+            response.Close();
 
-        #region HTTP请求函数
-        public string CommonHttpRequest(string url, WebHeaderCollection headers, string data, string type)
+            return xml_return;
+        }
+
+        // HTTPRequest 基本请求函数
+        private string CommonHttpRequest(string url, WebHeaderCollection headers, string data, string method)
         {
-            //Web访问对象，构造请求的url地址
-            string serviceUrl = string.Format(url);
 
-            //构造http请求的对象
-            HttpWebRequest myRequest = (HttpWebRequest)WebRequest.Create(serviceUrl);
-            //转成网络流
-            byte[] buf = System.Text.Encoding.GetEncoding("UTF-8").GetBytes(data);
+            byte[] data_buf = System.Text.Encoding.GetEncoding("UTF-8").GetBytes(data);
 
-            //设置
-            myRequest.Method = type;
-            myRequest.Headers = headers;
-            myRequest.ContentLength = buf.Length;
-            myRequest.ContentType = "application/json";
-            myRequest.MaximumAutomaticRedirections = 1;
-            myRequest.AllowAutoRedirect = true;
-            // 发送请求
-            Stream newStream = myRequest.GetRequestStream();
-            newStream.Write(buf, 0, buf.Length);
-            newStream.Close();
-            // 获得接口返回值
-            HttpWebResponse myResponse = (HttpWebResponse)myRequest.GetResponse();
-            StreamReader reader = new StreamReader(myResponse.GetResponseStream(), Encoding.UTF8);
-            string ReturnXml = reader.ReadToEnd();
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+
+            request.Method = method;
+            request.Headers = headers;
+            request.ContentLength = data_buf.Length;
+            request.ContentType = "application/json";
+            request.MaximumAutomaticRedirections = 1;
+            request.AllowAutoRedirect = true;
+
+            //网络流发送
+            Stream stream = request.GetRequestStream();
+            stream.Write(data_buf, 0, data_buf.Length);
+            stream.Close();
+
+            //获得回复数据
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
+            string xml_return = reader.ReadToEnd();
             reader.Close();
-            myResponse.Close();
-            return ReturnXml;
-            #endregion
+
+            response.Close();
+
+            return xml_return;
         }
+
     }
 }
