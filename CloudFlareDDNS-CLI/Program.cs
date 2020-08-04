@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.IO;
-using System.Linq.Expressions;
 using System.Net;
 using System.Threading;
 using System.Xml;
-using System.Xml.XPath;
-using CommandLine;
 using Newtonsoft.Json.Linq;
 
 namespace CloudFlareDDNS_CLI
@@ -28,8 +24,7 @@ namespace CloudFlareDDNS_CLI
 
             ConsoleLog.Log("Program started.");
 
-
-            // 打开配置文件
+            #region 打开配置文件
             XmlDocument config_xml = new XmlDocument();
             try
             {
@@ -50,10 +45,10 @@ namespace CloudFlareDDNS_CLI
                 return;
             }
             XmlElement config_root = config_xml.DocumentElement;
-            ConsoleLog.Succeed("File opened.");
+            ConsoleLog.Succeed("Configuration File opened.");
+            #endregion
 
-
-            //提取配置信息
+            #region 提取配置信息
             ConsoleLog.Log("Reading configurations.");
             DDNS.UserXAuth user;
             DDNS.DNSRecord record;
@@ -64,18 +59,18 @@ namespace CloudFlareDDNS_CLI
             {
                 user = new DDNS.UserXAuth
                 {
-                    X_Auth_Email = config_root.SelectSingleNode("/config/user/xauth_email").InnerText,
-                    X_Auth_Key = config_root.SelectSingleNode("/config/user/xauth_key").InnerText,
+                    X_Auth_Email = config_root.SelectSingleNode("/UserConfigurationData/xauth_email").InnerText,
+                    X_Auth_Key = config_root.SelectSingleNode("/UserConfigurationData/xauth_key").InnerText,
                 };
                 ConsoleLog.Info("User | XAuthEmail | " + user.X_Auth_Email);
                 ConsoleLog.Info("User | XAuthKey   | " + user.X_Auth_Key);
                 record = new DDNS.DNSRecord
                 {
                     id = "empty",
-                    name = config_root.SelectSingleNode("/config/record/name").InnerText,
+                    name = config_root.SelectSingleNode("/UserConfigurationData/record_name").InnerText,
                     content = "",
-                    ttl = int.Parse(config_root.SelectSingleNode("/config/record/ttl").InnerText),
-                    proxied = bool.Parse(config_root.SelectSingleNode("/config/record/proxied").InnerText)
+                    ttl = int.Parse(config_root.SelectSingleNode("/UserConfigurationData/record_ttl").InnerText),
+                    proxied = bool.Parse(config_root.SelectSingleNode("/UserConfigurationData/record_proxied").InnerText)
                 };
                 ConsoleLog.Info("DNS  | Name    | " + record.name);
                 ConsoleLog.Info("DNS  | TTL     | " + record.ttl);
@@ -84,14 +79,57 @@ namespace CloudFlareDDNS_CLI
                 {
                     user = user,
                     record = record,
-                    zone_id = config_root.SelectSingleNode("/config/zone_id").InnerText
+                    zone_id = config_root.SelectSingleNode("/UserConfigurationData/zone_id").InnerText
                 };
                 ConsoleLog.Info("Site | zone_id | " + request.zone_id);
-                //API列表读取
-                XmlNodeList api_node_list = config_root.SelectNodes("/config/ipapis/api");
+            }
+            catch (NullReferenceException e)
+            {
+                ConsoleLog.Error("Config file missing some information! Details below.");
+                ConsoleLog.Info(e.Message);
+                ConsoleLog.Log("Exit.");
+                return;
+            }
+            catch (FormatException e)
+            {
+                ConsoleLog.Error("Config file's format is wrong! Details below.");
+                ConsoleLog.Info(e.Message);
+                ConsoleLog.Log("Exit.");
+                return;
+            }
+            ConsoleLog.Succeed("Successfully read configuration.");
+            #endregion
+
+            #region 打开API配置文件
+            XmlDocument api_xml = new XmlDocument();
+            try
+            {
+                api_xml.Load("config_api.xml");
+            }
+            catch (FileNotFoundException e)
+            {
+                ConsoleLog.Error("Config file not found! Details below.");
+                ConsoleLog.Info(e.Message);
+                ConsoleLog.Log("Exit.");
+                return;
+            }
+            catch (XmlException e)
+            {
+                ConsoleLog.Error("Config file data invalid.");
+                ConsoleLog.Info(e.Message);
+                ConsoleLog.Log("Exit.");
+                return;
+            }
+            XmlElement api_root = api_xml.DocumentElement;
+            ConsoleLog.Succeed("API Configuration File opened.");
+            #region API列表读取
+            try
+            {
+                XmlNodeList api_node_list = api_root.SelectNodes("/config/ipapis/api");
                 foreach (XmlNode api in api_node_list)
                 {
-                    api_count++;
+                    ConsoleLog.Info("Here");
+                    api_count ++;
                     api_list.Add(api.InnerText);
                     ConsoleLog.Info("Public IP API (" + api_count.ToString().PadLeft(2, '0') + ") : " + api.InnerText);
                 }
@@ -110,12 +148,11 @@ namespace CloudFlareDDNS_CLI
                 ConsoleLog.Log("Exit.");
                 return;
             }
-            ConsoleLog.Succeed("Successfully read configuration.");
+            #endregion
 
+            #endregion
 
-
-
-            //获取CloudFlare域名ID
+            #region 获取CloudFlare域名ID
             int trytimer = 10;
             while (request.record.id == "empty")
             {
@@ -144,12 +181,12 @@ namespace CloudFlareDDNS_CLI
                     trytimer += 10;
                 }
             }
+            #endregion
 
 
 
 
-
-            //获取公网IP
+            #region 获取公网IP
             string ip_prev = "";
             string ip_now = "";
             int temp_count = 0;
@@ -180,10 +217,10 @@ namespace CloudFlareDDNS_CLI
                     trytimer += 10;
                 }
             }
-            
+            #endregion
 
 
-            //强制单次汇报
+            // 强制单次汇报
             ConsoleLog.Log("Report DDNS once for initialization.");
             trytimer = 10;
             while (true)
